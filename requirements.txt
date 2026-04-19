@@ -12,3 +12,5 @@ mlflow
 dvc
 dvc-gs
 redis
+flask
+alibi-detect

@@ -141,12 +141,6 @@
 
 
 
-
-
-
-
-
-
 import os
 import pandas as pd
 import numpy as np
@@ -168,7 +162,7 @@ class DataProcessor:
         self.test_path     = test_path
         self.processed_dir = processed_dir
         self.config        = read_yaml(config_path)
-        self.feature_store = feature_store          # Optional
+        self.feature_store = feature_store          # Optional — if None, Redis step is skipped
 
         if not os.path.exists(self.processed_dir):
             os.makedirs(self.processed_dir)
@@ -178,7 +172,7 @@ class DataProcessor:
     # ─────────────────────────────────────────────────────────────────
     def preprocess_data(self, df):
         try:
-            logger.info("Preprocessing data...")
+            logger.info("Preprocessing started.")
 
             cols_to_drop = [c for c in ['Unnamed: 0', 'id'] if c in df.columns]
             df.drop(columns=cols_to_drop, inplace=True)
@@ -197,7 +191,7 @@ class DataProcessor:
     def remove_high_correlation(self, df):
         try:
             threshold = self.config["data_processing"]["correlation_threshold"]
-            logger.info(f"High correlation threshold: {threshold}")
+            logger.info(f"Correlation threshold: {threshold}")
 
             features     = df.drop(columns=['diagnosis'])
             corr_matrix  = features.corr().abs()
@@ -207,19 +201,19 @@ class DataProcessor:
 
             df.drop(columns=to_drop, inplace=True)
 
-            logger.info(f"{len(to_drop)} highly correlated features dropped: {to_drop}")
-            logger.info(f"Remaining feature count: {df.shape[1] - 1}")
+            logger.info(f"Dropped {len(to_drop)} correlated features: {to_drop}")
+            logger.info(f"Remaining features: {df.shape[1] - 1}")
 
             return df, to_drop
 
         except Exception as e:
-            logger.error(f"Correlation cleaning error: {e}")
-            raise CustomException("Error while removing highly correlated features", e)
+            logger.error(f"Correlation removal error: {e}")
+            raise CustomException("Error removing high-correlation features", e)
 
     # ─────────────────────────────────────────────────────────────────
     def scale_data(self, train_df, test_df):
         try:
-            logger.info("Standard Scaler applying...")
+            logger.info("Applying StandardScaler...")
 
             X_train = train_df.drop(columns=['diagnosis'])
             y_train = train_df['diagnosis']
@@ -227,14 +221,14 @@ class DataProcessor:
             y_test  = test_df['diagnosis']
 
             scaler         = StandardScaler()
-            X_train_scaled = scaler.fit_transform(X_train)   
-            X_test_scaled  = scaler.transform(X_test)        
+            X_train_scaled = scaler.fit_transform(X_train)   # Fit on train only
+            X_test_scaled  = scaler.transform(X_test)        # Transform test only
 
-            # Save the scaler
+            # Save scaler for use in app.py
             scaler_path = os.path.join(self.processed_dir, 'scaler.pkl')
             with open(scaler_path, 'wb') as f:
                 pickle.dump(scaler, f)
-            logger.info(f"Scaler saved: {scaler_path}")
+            logger.info(f"Scaler saved to {scaler_path}")
 
             train_scaled_df = pd.DataFrame(X_train_scaled, columns=X_train.columns)
             train_scaled_df['diagnosis'] = y_train.reset_index(drop=True)
@@ -251,38 +245,42 @@ class DataProcessor:
     # ─────────────────────────────────────────────────────────────────
     def store_features_in_redis(self, train_df, test_df):
         """
-        It writes the processed train and test data to the Redis Feature Store.
-        The DataFrame index is used as the entity_id for each row.
+        Writes UNSCALED train + test data to Redis Feature Store.
+        Must be called BEFORE scale_data() so that the drift detector
+        in app.py can fit its own scaler on the raw values — exactly
+        like the reference implementation.
+        diagnosis column is excluded since it is not a feature.
         """
         try:
             batch_data = {}
 
             for label, df in [("train", train_df), ("test", test_df)]:
-                for idx, row in df.iterrows():
-                    entity_id = f"{label}_{idx}"         
+                feature_cols = [c for c in df.columns if c != "diagnosis"]
+                for idx, row in df[feature_cols].iterrows():
+                    entity_id = f"{label}_{idx}"
                     batch_data[entity_id] = row.to_dict()
 
             self.feature_store.store_batch_features(batch_data)
-            logger.info(f"Total to Redis: {len(batch_data)} records written.")
+            logger.info(f"{len(batch_data)} unscaled records written to Redis.")
 
         except Exception as e:
-            logger.error(f"Redis writing error: {e}")
-            raise CustomException("Error while writing to Feature Store", e)
+            logger.error(f"Redis write error: {e}")
+            raise CustomException("Failed to write to Feature Store", e)
 
     # ─────────────────────────────────────────────────────────────────
     def save_data(self, df, file_path):
         try:
-            logger.info(f"Saving data: {file_path}")
+            logger.info(f"Saving data to {file_path}")
             df.to_csv(file_path, index=False)
             logger.info("Data saved successfully.")
         except Exception as e:
-            logger.error(f"Error saving data: {e}")
-            raise CustomException("Error while saving data", e)
+            logger.error(f"Save error: {e}")
+            raise CustomException("Error saving data", e)
 
     # ─────────────────────────────────────────────────────────────────
     def process(self):
         try:
-            logger.info("Data processing pipeline starting...")
+            logger.info("Data processing pipeline started.")
 
             train_df = load_data(self.train_path)
             test_df  = load_data(self.test_path)
@@ -293,31 +291,31 @@ class DataProcessor:
             train_df, to_drop = self.remove_high_correlation(train_df)
             test_df.drop(columns=[c for c in to_drop if c in test_df.columns], inplace=True)
 
+            # Write to Redis BEFORE scaling — drift detector needs raw values
+            if self.feature_store:
+                self.store_features_in_redis(train_df, test_df)
+
             train_df, test_df = self.scale_data(train_df, test_df)
 
             self.save_data(train_df, PROCESSED_TRAIN_DATA_PATH)
             self.save_data(test_df,  PROCESSED_TEST_DATA_PATH)
 
-            # Redis varsa feature'ları yaz
-            if self.feature_store:
-                self.store_features_in_redis(train_df, test_df)
-
             logger.info("Data processing pipeline completed.")
 
         except Exception as e:
             logger.error(f"Pipeline error: {e}")
-            raise CustomException("Data processing pipeline error", e)
+            raise CustomException("Error in data processing pipeline", e)
 
 
 # ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    feature_store = RedisFeatureStore()   # Redis must be running in Docker
+    feature_store = RedisFeatureStore()   # Redis must be running via Docker
 
     processor = DataProcessor(
         train_path    = TRAIN_FILE_PATH,
         test_path     = TEST_FILE_PATH,
         processed_dir = PROCESSED_DIR,
         config_path   = CONFIG_PATH,
-        feature_store = feature_store     # If you select None, the Redis step will be skipped.
+        feature_store = feature_store     # Pass None to skip Redis step
     )
     processor.process()

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Breast Cancer Prediction</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f4f1ee;
+      --card: #ffffff;
+      --ink: #1a1a2e;
+      --muted: #6b6b80;
+      --accent: #c0392b;
+      --accent-soft: #fdf0ef;
+      --safe: #1a7f5a;
+      --safe-soft: #edf7f3;
+      --border: #e2ddd8;
+      --input-bg: #faf9f7;
+      --shadow: 0 4px 24px rgba(26,26,46,0.08);
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 2rem 1rem 4rem;
+    }
+
+    /* ── Header ── */
+    header {
+      max-width: 860px;
+      margin: 0 auto 2.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .logo-dot {
+      width: 14px; height: 14px;
+      background: var(--accent);
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 4px rgba(192,57,43,0.15);
+    }
+    header h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.6rem;
+      color: var(--ink);
+    }
+    header p {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      max-width: 860px;
+      margin: 0 auto 1.5rem;
+      padding: 2rem 2.5rem;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.1rem;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .field label {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: capitalize;
+    }
+    .field input {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.9rem;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    .field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(192,57,43,0.1);
+    }
+    .field input::placeholder { color: #bbb; }
+
+    /* ── Submit ── */
+    .btn-wrap { text-align: center; margin-top: 0.5rem; }
+    button[type="submit"] {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.8rem 3rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button[type="submit"]:hover { background: #a93226; }
+    button[type="submit"]:active { transform: scale(0.98); }
+
+    /* ── Result ── */
+    .result {
+      max-width: 860px;
+      margin: 0 auto;
+      border-radius: var(--radius);
+      padding: 1.5rem 2.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      border: 1px solid;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+    .result.malignant {
+      background: var(--accent-soft);
+      border-color: #e8b4b0;
+    }
+    .result.benign {
+      background: var(--safe-soft);
+      border-color: #a8d8c4;
+    }
+
+    .result-icon {
+      font-size: 2.2rem;
+      flex-shrink: 0;
+    }
+    .result-body h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.35rem;
+    }
+    .malignant .result-body h2 { color: var(--accent); }
+    .benign    .result-body h2 { color: var(--safe); }
+
+    .result-body p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    .prob-badge {
+      margin-left: auto;
+      font-size: 1.6rem;
+      font-weight: 700;
+      font-family: 'DM Serif Display', serif;
+    }
+    .malignant .prob-badge { color: var(--accent); }
+    .benign    .prob-badge { color: var(--safe); }
+
+    /* ── Error ── */
+    .error-box {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #fff8f8;
+      border: 1px solid #f5c6c6;
+      border-radius: var(--radius);
+      padding: 1rem 1.5rem;
+      color: var(--accent);
+      font-size: 0.88rem;
+    }
+
+    /* ── Footer note ── */
+    .note {
+      max-width: 860px;
+      margin: 1.5rem auto 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-dot"></div>
+    <div>
+      <h1>Breast Cancer Prediction</h1>
+      <p>Logistic Regression · Wisconsin Diagnostic Dataset</p>
+    </div>
+  </header>
+
+  <!-- Drift Warning -->
+  {% if drift_detected %}
+  <div style="max-width:860px;margin:0 auto 1rem;background:#fffbea;border:1px solid #f0d070;border-radius:12px;padding:1.2rem 2rem;">
+    <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.6rem;">
+      <span style="font-size:1.4rem;">&#9888;&#65039;</span>
+      <strong style="color:#b7791f;font-size:0.95rem;">Data Drift Detected</strong>
+    </div>
+    <p style="font-size:0.8rem;color:#92700a;margin-bottom:0.5rem;">
+      The following features are outside the training data range (mean &plusmn; 3&times;std).
+      Prediction reliability may be reduced.
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+      {% for f in drifted_features %}
+      <span style="background:#fef3c7;border:1px solid #f0d070;border-radius:6px;padding:0.2rem 0.6rem;font-size:0.75rem;color:#92400e;font-weight:500;">
+        {{ f.replace('_', ' ') }}
+      </span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Result -->
+  {% if prediction is not none %}
+    {% if prediction == 1 %}
+    <div class="result malignant">
+      <div class="result-icon">⚠️</div>
+      <div class="result-body">
+        <h2>Malignant</h2>
+        <p>The model predicts a malignant (cancerous) tumor. Please consult a specialist.</p>
+      </div>
+      <div class="prob-badge">{{ probability }}%</div>
+    </div>
+    {% else %}
+    <div class="result benign">
+      <div class="result-icon">✅</div>
+      <div class="result-body">
+        <h2>Benign</h2>
+        <p>The model predicts a benign (non-cancerous) tumor. Continue regular check-ups.</p>
+      </div>
+      <div class="prob-badge">{{ probability }}%</div>
+    </div>
+    {% endif %}
+  {% endif %}
+
+  {% if error %}
+  <div class="error-box">⚠️ {{ error }}</div>
+  {% endif %}
+
+  <!-- Form -->
+  <div class="card" style="margin-top: {% if prediction is not none or error %}1.5rem{% else %}0{% endif %}">
+    <div class="section-label">Patient Feature Input</div>
+    <form method="POST" action="/">
+      <div class="grid">
+        {% for feature in features %}
+        <div class="field">
+          <label for="{{ feature }}">{{ feature.replace('_', ' ') }}</label>
+          <input
+            type="number"
+            step="any"
+            id="{{ feature }}"
+            name="{{ feature }}"
+            placeholder="0.000"
+            required
+          />
+        </div>
+        {% endfor %}
+      </div>
+      <div class="btn-wrap" style="margin-top:1.8rem;">
+        <button type="submit">Run Prediction →</button>
+      </div>
+    </form>
+  </div>
+
+  <p class="note">
+    This tool is for research and educational purposes only.<br>
+    It is not a substitute for professional medical diagnosis.
+  </p>
+
+</body>
+</html>
