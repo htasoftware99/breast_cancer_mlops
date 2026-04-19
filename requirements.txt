@@ -10,3 +10,4 @@ statsmodels
 xgboost
 mlflow
 dvc
+dvc-gs
