@@ -22,9 +22,9 @@ An end-to-end MLOps pipeline for Breast Cancer classification using the Wisconsi
 
 ## 🛠 Tech Stack
 
-- **Language:** Python 3.10
+- **Language:** Python 3.10+
 - **ML:** Scikit-learn, Logistic Regression, GridSearchCV
-- **MLOps:** MLflow, DVC, Alibi-detect
+- **MLOps:** MLflow, DagsHub, DVC, Alibi-detect
 - **Feature Store:** Redis
 - **DevOps:** Docker, Jenkins
 - **Monitoring:** Prometheus, Grafana
@@ -33,58 +33,6 @@ An end-to-end MLOps pipeline for Breast Cancer classification using the Wisconsi
 
 ---
 
-## 📁 Project Structure
-
-```text
-breast_cancer_mlops/
-├── artifacts/
-│   ├── raw/                        # Raw data (train.csv, test.csv)
-│   ├── processed/                  # Scaled data + scaler.pkl
-│   └── models/                     # Trained model (.pkl)
-├── config/
-│   ├── config.yaml                 # Pipeline configuration
-│   ├── model_params.py             # GridSearchCV hyperparameters
-│   └── paths_config.py             # Centralized path definitions
-├── custom_jenkins/
-│   └── Dockerfile                  # Custom Jenkins image with Docker-in-Docker
-├── pipeline/
-│   └── training_pipeline.py        # End-to-end pipeline orchestrator
-├── src/
-│   ├── data_ingestion.py           # GCP bucket → raw CSV
-│   ├── data_preprocessing.py       # Cleaning, correlation filter, scaling, Redis write
-│   ├── feature_store.py            # Redis feature store client
-│   ├── model_training.py           # GridSearchCV + MLflow logging
-│   ├── logger.py                   # Centralized logging
-│   └── custom_exception.py         # Structured exception handling
-├── templates/
-│   └── index.html                  # Flask prediction UI
-├── utils/
-│   └── common_functions.py         # YAML reader, data loader
-├── app.py                          # Flask app + KSDrift + Prometheus
-├── Dockerfile                      # Application image (python:3.10-slim)
-├── Jenkinsfile                     # CI/CD pipeline definition
-└── dvc.yaml                        # DVC pipeline stages
-```
-
----
-
-## ⚙️ Architecture & Pipeline
-
-```
-GCP Bucket (breast_cancer.csv)
-        ↓
-  data_ingestion.py          → artifacts/raw/
-        ↓
-  data_preprocessing.py      → artifacts/processed/  +  Redis Feature Store
-        ↓
-  model_training.py          → artifacts/models/     +  MLflow (DagsHub)
-        ↓
-  app.py (Flask)             → Predictions + KSDrift + Prometheus metrics
-        ↓
-  Jenkins CI/CD              → Docker image → GCR → Cloud Run
-```
-
----
 
 ## 🔧 Setup & Installation
 
@@ -98,7 +46,7 @@ cd breast_cancer_mlops
 ### 2. Create Virtual Environment
 
 ```bash
-python3.10 -m venv venv
+python3.10+ -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -e .
@@ -109,7 +57,8 @@ pip install -e .
 Set your Google Cloud service account credentials:
 
 ```bash
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json" # for linux
+set GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json" # for windows
 ```
 
 ---
@@ -200,15 +149,6 @@ dvc push
 dvc pull
 ```
 
-Pipeline stages are defined in `dvc.yaml`:
-
-```yaml
-stages:
-  data_ingestion:   → artifacts/raw/
-  data_preprocessing: → artifacts/processed/
-  model_training:   → artifacts/models/
-```
-
 ---
 
 ## 🌊 Drift Detection
@@ -221,7 +161,7 @@ Data drift is detected using **KSDrift** from the [Alibi-detect](https://github.
 2. A dedicated `drift_scaler` (StandardScaler) is fit on this raw reference data
 3. The same scaler transforms both the reference data and each incoming inference input
 4. KSDrift runs a Kolmogorov-Smirnov test comparing the two distributions
-5. If `p_val < 0.05`, drift is flagged and a warning is shown in the UI
+5. If `p_val <= 0.05`, drift is flagged and a warning is shown in the UI
 
 ```python
 # Two separate scalers are used:
@@ -357,19 +297,3 @@ docker run -p 5000:5000 breast-cancer-app
 **Anomalous input (drift expected):** Enter `9999` for all features. The UI will display a yellow "Data Drift Detected" warning banner.
 
 ---
-
-## 📋 Configuration
-
-All key configuration is centralized:
-
-| File | Purpose |
-|---|---|
-| `config/config.yaml` | Bucket name, train ratio, correlation threshold |
-| `config/model_params.py` | Logistic Regression hyperparameter grid |
-| `config/paths_config.py` | All artifact and config file paths |
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.
