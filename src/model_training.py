@@ -163,9 +163,9 @@ from utils.common_functions import load_data
 
 logger = get_logger(__name__)
 
-# ─── MLflow ayarları ───────────────────────────────────────────────
+# ─── MLflow settings ───────────────────────────────────────────────
 MLFLOW_EXPERIMENT_NAME = "Breast_Cancer_Logistic_Regression"
-# Local UI için: mlflow ui  →  http://127.0.0.1:5000
+# for local UI: mlflow ui  →  http://127.0.0.1:5000
 # DagsHub için bu satırı açıp tracking URI'yi değiştir:
 # mlflow.set_tracking_uri("https://dagshub.com/<user>/<repo>.mlflow")
 # ───────────────────────────────────────────────────────────────────
