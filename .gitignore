@@ -3,7 +3,6 @@ logs
 mlruns
 venv
 mlflow.db
-.env
 neat-chain-464913-k3-b2da30b6a8f5.json
 config/__pycache__
 src/__pycache__
