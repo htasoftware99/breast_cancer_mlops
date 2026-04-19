@@ -1,0 +1,12 @@
+numpy
+pandas
+setuptools
+scikit-learn
+google-cloud-storage
+pyyaml
+matplotlib
+seaborn
+statsmodels
+xgboost
+mlflow
+dvc

@@ -1,0 +1,7 @@
+data_ingestion:
+  bucket_name : "my_bucket_breast_cancer"
+  bucket_file_name : "breast_cancer.csv"
+  train_ratio : 0.8
+  
+data_processing:
+  correlation_threshold: 0.92
