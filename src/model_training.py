@@ -229,12 +229,8 @@ class ModelTraining:
 
     # ─────────────────────────────────────────────────────────────────
     def load_data_from_redis(self):
-        """
-        Redis Feature Store'dan veriyi çeker ve train/test olarak böler.
-        entity_id formatı: 'train_0', 'test_42' gibi — prefix'e göre ayırır.
-        """
         try:
-            logger.info("Redis'ten veri yükleniyor...")
+            logger.info("Data loading from Redis...")
 
             entity_ids = self.feature_store.get_all_entity_ids()
 
@@ -247,39 +243,37 @@ class ModelTraining:
             train_df = pd.DataFrame(train_data)
             test_df  = pd.DataFrame(test_data)
 
-            logger.info(f"Redis'ten {len(train_df)} train, {len(test_df)} test kaydı alındı.")
+            logger.info(f"Data loaded from Redis: {len(train_df)} train, {len(test_df)} test records.")
             return train_df, test_df
 
         except Exception as e:
-            logger.error(f"Redis okuma hatası: {e}")
-            raise CustomException("Redis'ten veri yüklenirken hata", e)
+            logger.error(f"Error loading data from Redis: {e}")
+            raise CustomException("Error loading data from Redis", e)
 
     # ─────────────────────────────────────────────────────────────────
     def load_data_from_csv(self):
-        """CSV'den klasik okuma — Redis yoksa burası çalışır."""
         try:
-            logger.info("CSV'den veri yükleniyor...")
+            logger.info("Loading data from CSV...")
             train_df = load_data(self.train_path)
             test_df  = load_data(self.test_path)
             return train_df, test_df
         except Exception as e:
-            logger.error(f"CSV okuma hatası: {e}")
-            raise CustomException("CSV'den veri yüklenirken hata", e)
+            logger.error(f"Error loading data from CSV: {e}")
+            raise CustomException("Error loading data from CSV", e)
 
     # ─────────────────────────────────────────────────────────────────
     def split_features_labels(self, train_df, test_df):
-        """DataFrame'leri X/y olarak ayırır."""
         X_train = train_df.drop(columns=["diagnosis"])
         y_train = train_df["diagnosis"]
         X_test  = test_df.drop(columns=["diagnosis"])
         y_test  = test_df["diagnosis"]
-        logger.info("X/y ayrımı tamamlandı.")
+        logger.info("Features and labels split successfully.")
         return X_train, y_train, X_test, y_test
 
     # ─────────────────────────────────────────────────────────────────
     def train_model(self, X_train, y_train):
         try:
-            logger.info("GridSearchCV başlıyor...")
+            logger.info("GridSearchCV initializing...")
 
             lr_model = LogisticRegression(random_state=42)
 
@@ -297,13 +291,13 @@ class ModelTraining:
             return grid_search.best_estimator_, grid_search.best_params_
 
         except Exception as e:
-            logger.error(f"Model eğitim hatası: {e}")
-            raise CustomException("Model eğitilirken hata", e)
+            logger.error(f"Error training model: {e}")
+            raise CustomException("Error training model", e)
 
     # ─────────────────────────────────────────────────────────────────
     def evaluate_model(self, model, X_test, y_test):
         try:
-            logger.info("Model değerlendiriliyor...")
+            logger.info("Evaluating model...")
 
             y_pred  = model.predict(X_test)
             y_proba = model.predict_proba(X_test)[:, 1]
@@ -322,23 +316,23 @@ class ModelTraining:
             return metrics
 
         except Exception as e:
-            logger.error(f"Değerlendirme hatası: {e}")
-            raise CustomException("Model değerlendirilirken hata", e)
+            logger.error(f"Error evaluating model: {e}")
+            raise CustomException("Error evaluating model", e)
 
     # ─────────────────────────────────────────────────────────────────
     def save_model(self, model):
         try:
             os.makedirs(os.path.dirname(self.model_output_path), exist_ok=True)
             joblib.dump(model, self.model_output_path)
-            logger.info(f"Model kaydedildi: {self.model_output_path}")
+            logger.info(f"Model saved: {self.model_output_path}")
         except Exception as e:
-            logger.error(f"Model kaydetme hatası: {e}")
-            raise CustomException("Model kaydedilirken hata", e)
+            logger.error(f"Error saving model: {e}")
+            raise CustomException("Error saving model", e)
 
     # ─────────────────────────────────────────────────────────────────
     def run(self):
         try:
-            logger.info("Model Training pipeline başlıyor...")
+            logger.info("Model Training pipeline initializing...")
 
             # Always load from CSV for model training.
             # Redis is only used for drift detection in app.py.
@@ -352,49 +346,47 @@ class ModelTraining:
 
             with mlflow.start_run(run_name="logistic_regression_gridsearch"):
 
-                # Eğit
+                # train + hyperparameter tuning
                 best_model, best_params = self.train_model(X_train, y_train)
 
-                # Değerlendir
+                # Evaluate
                 metrics = self.evaluate_model(best_model, X_test, y_test)
 
-                # MLflow → parametreler
+                # MLflow → parameters
                 mlflow.log_params(best_params)
                 mlflow.log_param("cv_folds", self.grid_search_params["cv"])
                 mlflow.log_param("scoring",  self.grid_search_params["scoring"])
                 mlflow.log_param("data_source", "redis" if self.feature_store else "csv")
 
-                # MLflow → metrikler
+                # MLflow → metrics
                 mlflow.log_metrics(metrics)
 
-                # MLflow → model (sklearn flavor)
                 mlflow.sklearn.log_model(
                     sk_model              = best_model,
                     artifact_path         = "logistic_regression_model",
                     registered_model_name = "BreastCancerLR"
                 )
 
-                # Fiziksel .pkl kaydet
                 self.save_model(best_model)
                 mlflow.log_artifact(self.model_output_path)
 
                 logger.info(f"MLflow Run ID: {mlflow.active_run().info.run_id}")
 
-            logger.info("Model Training pipeline tamamlandı.")
+            logger.info("Model Training pipeline completed.")
 
         except Exception as e:
-            logger.error(f"Pipeline hatası: {e}")
-            raise CustomException("Model training pipeline hatası", e)
+            logger.error(f"Pipeline error: {e}")
+            raise CustomException("Model training pipeline error", e)
 
 
 # ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    feature_store = RedisFeatureStore()   # Docker'da Redis çalışıyor olmalı
+    feature_store = RedisFeatureStore()   # Redis must be running on docker
 
     trainer = ModelTraining(
         train_path        = PROCESSED_TRAIN_DATA_PATH,
         test_path         = PROCESSED_TEST_DATA_PATH,
         model_output_path = MODEL_OUTPUT_PATH,
-        feature_store     = feature_store     # None geçersen CSV'den okur
+        feature_store     = feature_store     
     )
     trainer.run()
