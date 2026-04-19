@@ -14,3 +14,4 @@ dvc-gs
 redis
 flask
 alibi-detect
+prometheus-client
