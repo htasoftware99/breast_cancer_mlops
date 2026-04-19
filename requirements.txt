@@ -11,3 +11,4 @@ xgboost
 mlflow
 dvc
 dvc-gs
+redis
