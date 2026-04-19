@@ -2,7 +2,6 @@ mkdir -p src
 mkdir -p notebooks
 mkdir -p artifacts
 mkdir -p templates
-mkdir -p static
 mkdir -p config
 mkdir -p utils
 mkdir -p pipeline
@@ -12,7 +11,6 @@ touch src/logger.py
 touch src/custom_exception.py
 touch config/__init__.py
 touch utils/__init__.py
-touch .env
 touch setup.py
 touch app.py
 touch notebooks/trials.ipynb
