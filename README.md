@@ -4,6 +4,14 @@ An end-to-end MLOps pipeline for Breast Cancer classification using the Wisconsi
 
 ---
 
+## 🏗️ System Architecture
+
+<p align="center">
+  <img src="structure.png" width="700"/>
+</p>
+
+---
+
 ## 🚀 Key Features
 
 | Feature | Tool |
